@@ -1,0 +1,18 @@
+# Workflow to check Python code formatting
+
+name: Python linting
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install black
+        run: |
+          pip install black[jupyter]==23.3.0
+      - name: Check code style with Black
+        run: |
+          black --check .
