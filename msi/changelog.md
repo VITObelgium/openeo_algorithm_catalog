@@ -1,0 +1,21 @@
+# Changelog for **MSI** Service
+
+### 17/11/2024
+
+#### Added
+- Migrated the EVI algorithm to a public GitHub repository.
+- The namespace in the service is now directing to the process graph hosted in the GitHub repository.
+
+#### Updated
+- Updated the documentation to reflect the new repository location.
+
+### 19/06/2025
+
+#### Changed
+- Updated SCL masking from `mask_scl_dilation` to `to_scl_dilation_mask`.
+
+
+### Initial release
+
+- Migrated the MSI service as-is from the Nextland Implementation.
+- The service is available in the marketplace under the namespace: https://openeo.dataspace.copernicus.eu/openeo/1.1/processes/u:3e24e251-2e9a-438f-90a9-d4500e576574/MSI
