@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository serves as a catalog for openEO algorithms developed by Terrascope that are available as User Defined Processes (UDPs). T
+This repository serves as a catalog for openEO algorithms that are available as User Defined Processes (UDPs). 
 
 These UDPs will be hosted either in EOplaza(https://portal.terrascope.be/) or CDSE (https://marketplace-portal.dataspace.copernicus.eu/).
 
@@ -17,7 +17,6 @@ The structure of each algorithm directory is as follows:
 
 algorithm_name/
 ├── openeo_udp/         # Directory containing the openEO UDP implementation
-│   ├── __init__.py     # Initialization file for the UDP package
 │   ├── generate_udp_pg.py     # Main algorithm implementation file that generates the process graph
 │   ├── utils.py        # Utility functions used by the UDP (if any)
 │   └── requirements.txt # List of dependencies for the UDP (if any)
