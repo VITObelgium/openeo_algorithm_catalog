@@ -3,7 +3,7 @@
 ### 18/11/2024
 
 #### Added
-- Migrated the EVI algorithm to a public GitHub repository.
+- Migrated the NBR algorithm to a public GitHub repository.
 - The namespace in the service is now directing to the process graph hosted in the GitHub repository.
 
 #### Updated
