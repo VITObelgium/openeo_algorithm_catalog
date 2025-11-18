@@ -19,6 +19,5 @@
 
 ### Initial release
 
-- Migrated the SAVI service as-is from the EOplaza Implementation.
-- The service is available in the marketplace under the namespace: https://openeo.dataspace.copernicus.eu/openeo/1.2/processes/u:3e24e251-2e9a-438f-90a9-d4500e576574/SAVI
-
+- Migrated the EVI service as-is from the EOplaza Implementation.
+- The service is available in the marketplace under the namespace: https://openeo.dataspace.copernicus.eu/openeo/1.2/processes/u:3e24e251-2e9a-438f-90a9-d4500e576574/EVI

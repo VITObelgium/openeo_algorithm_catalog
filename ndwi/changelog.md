@@ -1,9 +1,9 @@
-# Changelog for **NDII** Service
+# Changelog for **NDWI** Service
 
 ### 18/11/2024
 
 #### Added
-- Migrated the NDII algorithm to a public GitHub repository.
+- Migrated the NDWI algorithm to a public GitHub repository.
 - The namespace in the service is now directing to the process graph hosted in the GitHub repository.
 
 #### Updated
@@ -18,5 +18,6 @@
 
 ### Initial release
 
-- Migrated the NDII service as-is from the Nextland Implementation.
-- The service is available in the marketplace under the namespace: https://openeo.dataspace.copernicus.eu/openeo/1.2/processes/u:3e24e251-2e9a-438f-90a9-d4500e576574/NDII
+- Migrated the NDWI service as-is from the Nextland Implementation.
+- The service is available in the marketplace under the namespace: https://openeo.dataspace.copernicus.eu/openeo/1.2/processes/u:3e24e251-2e9a-438f-90a9-d4500e576574/NDWI
+
