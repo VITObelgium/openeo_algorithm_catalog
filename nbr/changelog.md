@@ -2,12 +2,18 @@
 
 ### 18/11/2024
 
+
 #### Added
 - Migrated the NBR algorithm to a public GitHub repository.
-- The namespace in the service is now directing to the process graph hosted in the GitHub repository.
+- Added benchmark scenario example notebook for NBR service.
 
 #### Updated
 - Updated the documentation to reflect the new repository location.
+- Spatial and temporal filtering done within the `load_collection` process.
+- Updated the `aoi` parameter name to `spatial_extent` for consistency with other services.
+- Updated the `date` parameter name to `temporal_extent` for consistency with other services.
+- Updated the service name `NBR` to `nbr`.
+- Updated the namespace URL to point to the JSON file hosted in the GitHub repository.
 
 
 ### 04/06/2025
