@@ -1,4 +1,4 @@
-# Changelog for **NBR** Service
+# Changelog for **NDII** Service
 
 ### 18/11/2024
 
