@@ -1,0 +1,257 @@
+{
+    "process_graph": {
+        "loadcollection1": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "B04",
+                    "B08"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "loadcollection2": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "SCL"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "toscldilationmask1": {
+            "process_id": "to_scl_dilation_mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection2"
+                }
+            }
+        },
+        "mask1": {
+            "process_id": "mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection1"
+                },
+                "mask": {
+                    "from_node": "toscldilationmask1"
+                }
+            }
+        },
+        "reducedimension1": {
+            "process_id": "reduce_dimension",
+            "arguments": {
+                "data": {
+                    "from_node": "mask1"
+                },
+                "dimension": "bands",
+                "reducer": {
+                    "process_graph": {
+                        "arrayelement1": {
+                            "process_id": "array_element",
+                            "arguments": {
+                                "data": {
+                                    "from_parameter": "data"
+                                },
+                                "index": 1
+                            }
+                        },
+                        "arrayelement2": {
+                            "process_id": "array_element",
+                            "arguments": {
+                                "data": {
+                                    "from_parameter": "data"
+                                },
+                                "index": 0
+                            }
+                        },
+                        "subtract1": {
+                            "process_id": "subtract",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "arrayelement1"
+                                },
+                                "y": {
+                                    "from_node": "arrayelement2"
+                                }
+                            }
+                        },
+                        "add1": {
+                            "process_id": "add",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "arrayelement1"
+                                },
+                                "y": {
+                                    "from_node": "arrayelement2"
+                                }
+                            }
+                        },
+                        "add2": {
+                            "process_id": "add",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "add1"
+                                },
+                                "y": 0.5
+                            }
+                        },
+                        "divide1": {
+                            "process_id": "divide",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "subtract1"
+                                },
+                                "y": {
+                                    "from_node": "add2"
+                                }
+                            }
+                        },
+                        "multiply1": {
+                            "process_id": "multiply",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "divide1"
+                                },
+                                "y": 1.5
+                            },
+                            "result": true
+                        }
+                    }
+                }
+            },
+            "result": true
+        }
+    },
+    "id": "savi",
+    "description": "## Overview\n\nThis service calculates Soil-Adjusted Vegetation Index (SAVI) for an area and time period. The Soil-Adjusted Vegetation Index (SAVI) is an enhancement of the Normalized Difference Vegetation Index (NDVI) that takes into account the effects of soil background. SAVI minimizes soil brightness influences, making it more suitable for areas with substantial soil exposure. It is often used to assess vegetation health and density in remote sensing applications. It can be applied in agricultural monitoring to evaluate vegetation cover and health in areas with varying soil brightness, helping to distinguish between bare soil and vegetation.\n\n## Methodology\n\nSAVI is calculated as a ratio between the R and NIR values with a soil brightness correction factor (L) defined as 0.5 to accommodate most land cover types. The formula is SAVI = ((1 + L) * (NIR - Red)) / (NIR + Red + L), where L = 0.5.\n\n## Result\n\nThe process generates an image representing a qualitative descriptor. The values will range from -1 to 1, with higher values indicating healthier and denser vegetation, while negative values may represent areas with minimal vegetation or regions where the soil reflects more than the vegetation.",
+    "parameters": [
+        {
+            "name": "spatial_extent",
+            "description": "Limits the data to process to the specified bounding box or polygons.\\n\\nFor raster data, the process loads the pixel into the data cube if the point at the pixel center intersects with the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC).\\nFor vector data, the process loads the geometry into the data cube if the geometry is fully within the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC). Empty geometries may only be in the data cube if no spatial extent has been provided.\\n\\nEmpty geometries are ignored.\\nSet this parameter to null to set no limit for the spatial extent.",
+            "schema": [
+                {
+                    "title": "Bounding Box",
+                    "type": "object",
+                    "subtype": "bounding-box",
+                    "required": [
+                        "west",
+                        "south",
+                        "east",
+                        "north"
+                    ],
+                    "properties": {
+                        "west": {
+                            "description": "West (lower left corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "south": {
+                            "description": "South (lower left corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "east": {
+                            "description": "East (upper right corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "north": {
+                            "description": "North (upper right corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "base": {
+                            "description": "Base (optional, lower left corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "height": {
+                            "description": "Height (optional, upper right corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "crs": {
+                            "description": "Coordinate reference system of the extent, specified as as [EPSG code](http://www.epsg-registry.org/) or [WKT2 CRS string](http://docs.opengeospatial.org/is/18-010r7/18-010r7.html). Defaults to `4326` (EPSG code 4326) unless the client explicitly requests a different coordinate reference system.",
+                            "anyOf": [
+                                {
+                                    "title": "EPSG Code",
+                                    "type": "integer",
+                                    "subtype": "epsg-code",
+                                    "minimum": 1000,
+                                    "examples": [
+                                        3857
+                                    ]
+                                },
+                                {
+                                    "title": "WKT2",
+                                    "type": "string",
+                                    "subtype": "wkt2-definition"
+                                }
+                            ],
+                            "default": 4326
+                        }
+                    }
+                },
+                {
+                    "title": "Vector data cube",
+                    "description": "Limits the data cube to the bounding box of the given geometries in the vector data cube. For raster data, all pixels inside the bounding box that do not intersect with any of the polygons will be set to no data (`null`). Empty geometries are ignored.",
+                    "type": "object",
+                    "subtype": "datacube",
+                    "dimensions": [
+                        {
+                            "type": "geometry"
+                        }
+                    ]
+                },
+                {
+                    "title": "No filter",
+                    "description": "Don't filter spatially. All data is included in the data cube.",
+                    "type": "null"
+                }
+            ]
+        },
+        {
+            "name": "temporal_extent",
+            "description": "Temporal extent specified as two-element array with start and end date/date-time.",
+            "schema": {
+                "type": "array",
+                "subtype": "temporal-interval",
+                "uniqueItems": true,
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "subtype": "date-time",
+                            "format": "date-time"
+                        },
+                        {
+                            "type": "string",
+                            "subtype": "date",
+                            "format": "date"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
