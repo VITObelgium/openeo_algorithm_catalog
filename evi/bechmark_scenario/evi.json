@@ -38,7 +38,7 @@
                     "2018-06-27"
                 ]
             },
-            "namespace": "https://raw.githubusercontent.com/VITObelgium/openeo_algorithm_catalog/refs/heads/feature_branch1/evi/openeo_udp/evi.json",
+            "namespace": "https://raw.githubusercontent.com/VITObelgium/openeo_algorithm_catalog/9f555cd25f1d5149d45254248f9710f784df9814/evi/openeo_udp/evi.json",
             "process_id": "evi"
         },
         "saveresult1": {
