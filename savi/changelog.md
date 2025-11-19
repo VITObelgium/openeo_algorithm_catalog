@@ -1,6 +1,6 @@
 # Changelog for **SAVI** Service
 
-### 18/11/2024
+### 18/11/2025
 
 #### Added
 - Migrated the SAVI algorithm to a public GitHub repository.

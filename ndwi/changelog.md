@@ -1,6 +1,6 @@
 # Changelog for **NDWI** Service
 
-### 18/11/2024
+### 18/11/2025
 
 #### Added
 - Migrated the NDWI algorithm to a public GitHub repository.

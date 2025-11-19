@@ -1,6 +1,6 @@
 # Changelog for **NDII** Service
 
-### 18/11/2024
+### 18/11/2025
 
 #### Added
 - Migrated the NDII algorithm to a public GitHub repository.
@@ -15,7 +15,7 @@
 - Updated the namespace URL to point to the JSON file hosted in the GitHub repository.
 
 
-### 19/06/2025s
+### 19/06/2025
 
 #### Changed
 - Updated SCL masking from `mask_scl_dilation` to `to_scl_dilation_mask`.

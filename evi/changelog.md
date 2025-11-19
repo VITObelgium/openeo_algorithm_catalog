@@ -1,6 +1,6 @@
 # Changelog for **EVI** Service
 
-### 17/11/2024
+### 17/11/2025
 
 #### Added
 - Migrated the EVI algorithm to a public GitHub repository.
