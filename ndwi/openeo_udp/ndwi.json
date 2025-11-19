@@ -1,0 +1,239 @@
+{
+    "process_graph": {
+        "loadcollection1": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "B08",
+                    "B12"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "loadcollection2": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "SCL"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "toscldilationmask1": {
+            "process_id": "to_scl_dilation_mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection2"
+                }
+            }
+        },
+        "mask1": {
+            "process_id": "mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection1"
+                },
+                "mask": {
+                    "from_node": "toscldilationmask1"
+                }
+            }
+        },
+        "reducedimension1": {
+            "process_id": "reduce_dimension",
+            "arguments": {
+                "data": {
+                    "from_node": "mask1"
+                },
+                "dimension": "bands",
+                "reducer": {
+                    "process_graph": {
+                        "arrayelement1": {
+                            "process_id": "array_element",
+                            "arguments": {
+                                "data": {
+                                    "from_parameter": "data"
+                                },
+                                "index": 0
+                            }
+                        },
+                        "arrayelement2": {
+                            "process_id": "array_element",
+                            "arguments": {
+                                "data": {
+                                    "from_parameter": "data"
+                                },
+                                "index": 1
+                            }
+                        },
+                        "subtract1": {
+                            "process_id": "subtract",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "arrayelement1"
+                                },
+                                "y": {
+                                    "from_node": "arrayelement2"
+                                }
+                            }
+                        },
+                        "add1": {
+                            "process_id": "add",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "arrayelement1"
+                                },
+                                "y": {
+                                    "from_node": "arrayelement2"
+                                }
+                            }
+                        },
+                        "divide1": {
+                            "process_id": "divide",
+                            "arguments": {
+                                "x": {
+                                    "from_node": "subtract1"
+                                },
+                                "y": {
+                                    "from_node": "add1"
+                                }
+                            },
+                            "result": true
+                        }
+                    }
+                }
+            },
+            "result": true
+        }
+    },
+    "id": "ndwi",
+    "description": "# Normalized Difference Water Index\n\nCalculate NDWI at 10m resolution, for an area specifying collection and bands and/or time period.\n\nDuring drought event, vegetation canopy can be affected by water stress. This can have major\nimpact on the plant development in general and can cause crop failure or lower crop production in\nagricultural areas. Early recognition of plant water stress can be critical to prevent such\nconsequences. By providing near-real time information on the plant water stress to the\nstakeholders, water and agricultural management can be much improved, notably by irrigating\nspecifically areas where plant water needs are not fulfilled anymore.\nThe Normalized Difference Water Index (NDWI) is known to be strongly related to the plant water\ncontent. It is therefore a very good proxy for plant water stress. \n\nNDWI is defined as the normalized difference between the NIR and SWIR bands.\n\n\n[Link](https://www.sciencedirect.com/science/article/abs/pii/S0034425796000673)",
+    "parameters": [
+        {
+            "name": "spatial_extent",
+            "description": "Limits the data to process to the specified bounding box or polygons.\\n\\nFor raster data, the process loads the pixel into the data cube if the point at the pixel center intersects with the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC).\\nFor vector data, the process loads the geometry into the data cube if the geometry is fully within the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC). Empty geometries may only be in the data cube if no spatial extent has been provided.\\n\\nEmpty geometries are ignored.\\nSet this parameter to null to set no limit for the spatial extent.",
+            "schema": [
+                {
+                    "title": "Bounding Box",
+                    "type": "object",
+                    "subtype": "bounding-box",
+                    "required": [
+                        "west",
+                        "south",
+                        "east",
+                        "north"
+                    ],
+                    "properties": {
+                        "west": {
+                            "description": "West (lower left corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "south": {
+                            "description": "South (lower left corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "east": {
+                            "description": "East (upper right corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "north": {
+                            "description": "North (upper right corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "base": {
+                            "description": "Base (optional, lower left corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "height": {
+                            "description": "Height (optional, upper right corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "crs": {
+                            "description": "Coordinate reference system of the extent, specified as as [EPSG code](http://www.epsg-registry.org/) or [WKT2 CRS string](http://docs.opengeospatial.org/is/18-010r7/18-010r7.html). Defaults to `4326` (EPSG code 4326) unless the client explicitly requests a different coordinate reference system.",
+                            "anyOf": [
+                                {
+                                    "title": "EPSG Code",
+                                    "type": "integer",
+                                    "subtype": "epsg-code",
+                                    "minimum": 1000,
+                                    "examples": [
+                                        3857
+                                    ]
+                                },
+                                {
+                                    "title": "WKT2",
+                                    "type": "string",
+                                    "subtype": "wkt2-definition"
+                                }
+                            ],
+                            "default": 4326
+                        }
+                    }
+                },
+                {
+                    "title": "Vector data cube",
+                    "description": "Limits the data cube to the bounding box of the given geometries in the vector data cube. For raster data, all pixels inside the bounding box that do not intersect with any of the polygons will be set to no data (`null`). Empty geometries are ignored.",
+                    "type": "object",
+                    "subtype": "datacube",
+                    "dimensions": [
+                        {
+                            "type": "geometry"
+                        }
+                    ]
+                },
+                {
+                    "title": "No filter",
+                    "description": "Don't filter spatially. All data is included in the data cube.",
+                    "type": "null"
+                }
+            ]
+        },
+        {
+            "name": "temporal_extent",
+            "description": "Temporal extent specified as two-element array with start and end date/date-time.",
+            "schema": {
+                "type": "array",
+                "subtype": "temporal-interval",
+                "uniqueItems": true,
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "subtype": "date-time",
+                            "format": "date-time"
+                        },
+                        {
+                            "type": "string",
+                            "subtype": "date",
+                            "format": "date"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

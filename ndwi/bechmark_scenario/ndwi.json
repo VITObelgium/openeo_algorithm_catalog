@@ -1,0 +1,56 @@
+{
+    "process_graph": {
+        "ndwi1": {
+            "arguments": {
+                "spatial_extent": {
+                    "coordinates": [
+                        [
+                            [
+                                5.179324150085449,
+                                51.2498689148547
+                            ],
+                            [
+                                5.178744792938232,
+                                51.24672597710759
+                            ],
+                            [
+                                5.185289382934569,
+                                51.24504696935156
+                            ],
+                            [
+                                5.18676996231079,
+                                51.245342479161295
+                            ],
+                            [
+                                5.187370777130127,
+                                51.24918393390799
+                            ],
+                            [
+                                5.179324150085449,
+                                51.2498689148547
+                            ]
+                        ]
+                    ],
+                    "type": "Polygon"
+                },
+                "temporal_extent": [
+                    "2018-06-27",
+                    "2018-06-27"
+                ]
+            },
+            "namespace": "https://raw.githubusercontent.com/VITObelgium/openeo_algorithm_catalog/refs/heads/feature_branch1/ndwi/openeo_udp/ndwi.json",
+            "process_id": "ndwi"
+        },
+        "saveresult1": {
+            "arguments": {
+                "data": {
+                    "from_node": "ndwi1"
+                },
+                "format": "GTiff",
+                "options": {}
+            },
+            "process_id": "save_result",
+            "result": true
+        }
+    }
+}
