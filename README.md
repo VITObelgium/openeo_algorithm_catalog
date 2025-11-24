@@ -18,13 +18,14 @@ The structure of each algorithm directory is as follows:
 algorithm_name/
 ├── openeo_udp/         # Directory containing the openEO UDP implementation
 │   ├── generate_udp_pg.py     # Main algorithm implementation file that generates the process graph
-│   ├── utils.py        # Utility functions used by the UDP (if any)
+│   ├── helper_functions.py        # Helper functions used by the UDP (if any)
 │   └── requirements.txt # List of dependencies for the UDP (if any)
     ├── algorithm_name_pg.json  # Process graph generated of the UDP
 |   └── README.md        # Documentation specific to the UDP
 └── benchmark_scenarios/  # Directory containing benchmark scenarios for the algorithm
     ├── example.ipynb  # Example Jupyter notebook demonstrating the algorithm usage
     └── algorithm_name.json  # Benchmark scenario definition generated from the UDP demostrated in the notebook
+├── utils/               # Directory containing utility scripts for the algorithm
 |__ changelog.md        # Changelog for the algorithm
     
             
