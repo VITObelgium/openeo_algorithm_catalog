@@ -1,0 +1,251 @@
+{
+    "process_graph": {
+        "loadcollection1": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "B04",
+                    "B08"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "loadcollection2": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "SCL"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "toscldilationmask1": {
+            "process_id": "to_scl_dilation_mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection2"
+                }
+            }
+        },
+        "mask1": {
+            "process_id": "mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection1"
+                },
+                "mask": {
+                    "from_node": "toscldilationmask1"
+                }
+            }
+        },
+        "ndvi1": {
+            "process_id": "ndvi",
+            "arguments": {
+                "data": {
+                    "from_node": "mask1"
+                },
+                "nir": "B08",
+                "red": "B04"
+            }
+        },
+        "applydimension1": {
+            "process_id": "apply_dimension",
+            "arguments": {
+                "data": {
+                    "from_node": "ndvi1"
+                },
+                "dimension": "t",
+                "process": {
+                    "process_graph": {
+                        "runudf1": {
+                            "process_id": "run_udf",
+                            "arguments": {
+                                "data": {
+                                    "from_parameter": "data"
+                                },
+                                "runtime": "Python",
+                                "udf": "\"\"\"\nRelevant for the algorithms offered by AI4Food as part of [FuseTS](https://open-eo.github.io/FuseTS/), specifically:\n- mogpr/\n- mogpr_s1s2/\n- peak_valley_detection/\n- phenology/\n- whittaker/\n\nThis module provides utility functions to download a zip file from a given URL,\nextract its contents to a temporary directory, move the top-level folder to a specified\ndestination, and add that folder to the Python sys.path for module imports.\n\n\"\"\"\n\nimport os\nimport sys\nimport zipfile\nimport requests\nimport tempfile\nimport shutil\nimport functools\n\nfrom openeo.udf import inspect\n\n\ndef download_file(url, path):\n    \"\"\"\n    Downloads a file from the given URL to the specified path.\n    \"\"\"\n    response = requests.get(url, stream=True)\n    with open(path, \"wb\") as file:\n        file.write(response.content)\n\n\ndef extract_zip_to_temp(zip_path, temp_dir):\n    \"\"\"\n    Extracts a zip file into the given temporary directory.\n    \"\"\"\n    with zipfile.ZipFile(zip_path, \"r\") as zip_ref:\n        zip_ref.extractall(temp_dir)  # Use the existing temp_dir\n    return temp_dir\n\n\ndef move_top_level_folder_to_destination(temp_dir, destination_dir):\n    \"\"\"\n    Moves each top-level folder from the temporary directory to the destination directory.\n    Throws an error if the folder already exists at the destination.\n    \"\"\"\n    # Find the top-level folders inside the extracted zip\n    for item in os.listdir(temp_dir):\n        item_path = os.path.join(temp_dir, item)\n\n        if os.path.isdir(item_path):\n            # Check if the folder already exists at destination\n            dest_path = os.path.join(destination_dir, item)\n\n            if os.path.exists(dest_path):\n                # Throw an error if the folder already exists\n                raise FileExistsError(\n                    f\"Error: The folder '{item}' already exists in the destination directory: {dest_path}\"\n                )\n\n            # Move the folder out of temp and into the destination directory\n            shutil.move(item_path, dest_path)\n\n\ndef add_to_sys_path(folder_path):\n    \"\"\"\n    Adds the folder path to sys.path.\n    \"\"\"\n    if folder_path not in sys.path:\n        sys.path.append(folder_path)\n\n\n@functools.lru_cache(maxsize=5)\ndef setup_dependencies(dependencies_url):\n    \"\"\"\n    Main function to download, unzip, move the top-level folder, and add it to sys.path.\n    \"\"\"\n    with tempfile.TemporaryDirectory() as temp_dir:\n        # Step 1: Download the zip file\n        zip_path = os.path.join(temp_dir, \"temp.zip\")\n        download_file(dependencies_url, zip_path)\n\n        inspect(message=\"Extract dependencies to temp\")\n        # Step 2: Extract the zip file to the temporary directory\n        extracted_dir = extract_zip_to_temp(zip_path, temp_dir)\n\n        # Step 3: Move the first top-level folder (dynamically) to the destination\n        destination_dir = os.getcwd()  # Current working directory\n        inspect(message=\"Move top-level folder to destination\")\n        moved_folder = move_top_level_folder_to_destination(\n            extracted_dir, destination_dir\n        )\n\n        # Step 4: Add the folder to sys.path\n        add_to_sys_path(moved_folder)\n        inspect(message=\"Added to the sys path\")\n\n\n# call the setup_dependencies function with the specific URL\nsetup_dependencies(\n    \"https://artifactory.vgt.vito.be:443/artifactory/auxdata-public/ai4food/fusets_venv.zip\"\n)\n\nimport sys\nfrom pathlib import Path\nfrom typing import Dict\n\nfrom openeo.udf import XarrayDataCube, inspect\n\n\ndef load_venv():\n    \"\"\"\n    Add the virtual environment to the system path if the folder `/tmp/venv_static` exists\n    :return:\n    \"\"\"\n    for venv_path in ['tmp/venv_static', 'tmp/venv']:\n        if Path(venv_path).exists():\n            sys.path.insert(0, venv_path)\n\n\ndef apply_datacube(cube: XarrayDataCube, context: Dict) -> XarrayDataCube:\n    \"\"\"\n    Apply phenology to a datacube\n    @param cube:\n    @param context:\n    @return:\n    \"\"\"\n    load_venv()\n\n    from fusets.analytics import phenology\n    data = cube.get_array()\n    data = data.rename({'t': 'time'})\n    data = data.isel(bands=0)\n    phenology_result = phenology(data)\n    phenology_result = phenology_result.to_array(dim='bands')\n    phenology_result = phenology_result.expand_dims(dim='t', axis=0).assign_coords(t=[data.time.values[0]])\n    inspect(data=phenology_result, message=\"Phenology result\")\n    return XarrayDataCube(phenology_result)\n\n\ndef load_phenology_udf() -> str:\n    \"\"\"\n    Loads an openEO udf that applies phenology service.\n    @return:\n    \"\"\"\n    import os\n    return Path(os.path.realpath(__file__)).read_text()\n",
+                                "version": "3.8"
+                            },
+                            "result": true
+                        }
+                    }
+                },
+                "target_dimension": "phenology"
+            }
+        },
+        "adddimension1": {
+            "process_id": "add_dimension",
+            "arguments": {
+                "data": {
+                    "from_node": "applydimension1"
+                },
+                "label": "pos_values",
+                "name": "var",
+                "type": "bands"
+            }
+        },
+        "renamelabels1": {
+            "process_id": "rename_labels",
+            "arguments": {
+                "data": {
+                    "from_node": "adddimension1"
+                },
+                "dimension": "var",
+                "target": [
+                    "pos_values",
+                    "pos_times",
+                    "mos_values",
+                    "vos_values",
+                    "vos_times",
+                    "bse_values",
+                    "aos_values",
+                    "sos_values",
+                    "sos_times",
+                    "eos_values",
+                    "eos_times",
+                    "los_values",
+                    "roi_values",
+                    "rod_values",
+                    "lios_values",
+                    "sios_values",
+                    "liot_values",
+                    "siot_values"
+                ]
+            },
+            "result": true
+        }
+    },
+    "id": "phenology",
+    "summary": "Calculate phenology metrics from Sentinel-2 NDVI",
+    "description": "# Phenology\n\n## Description\n\nComputes phenology metrics based on the [Phenolopy](https://github.com/lewistrotter/PhenoloPy) implementation.\nPhenolopy (phenology + python) is a python-based library for analysing satellite timeseries data.\nPhenolopy has been designed to investigate the seasonality of satellite timeseries data and their relationship with\ndynamic vegetation properties such as phenology and temporal growth patterns.\nThe temporal domain holds important information about short- and long-term changes within vegetation lifecycles.\nPhenolopy can be applied to derive numerous phenometrics from satellite imagery.\n\n![image.png](https://github.com/lewistrotter/Phenolopy/raw/main/documentation/images/pheno_explain.png?raw=true)",
+    "parameters": [
+        {
+            "name": "spatial_extent",
+            "description": "Limits the data to process to the specified bounding box or polygons.\\n\\nFor raster data, the process loads the pixel into the data cube if the point at the pixel center intersects with the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC).\\nFor vector data, the process loads the geometry into the data cube if the geometry is fully within the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC). Empty geometries may only be in the data cube if no spatial extent has been provided.\\n\\nEmpty geometries are ignored.\\nSet this parameter to null to set no limit for the spatial extent.",
+            "schema": [
+                {
+                    "title": "Bounding Box",
+                    "type": "object",
+                    "subtype": "bounding-box",
+                    "required": [
+                        "west",
+                        "south",
+                        "east",
+                        "north"
+                    ],
+                    "properties": {
+                        "west": {
+                            "description": "West (lower left corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "south": {
+                            "description": "South (lower left corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "east": {
+                            "description": "East (upper right corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "north": {
+                            "description": "North (upper right corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "base": {
+                            "description": "Base (optional, lower left corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "height": {
+                            "description": "Height (optional, upper right corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "crs": {
+                            "description": "Coordinate reference system of the extent, specified as as [EPSG code](http://www.epsg-registry.org/) or [WKT2 CRS string](http://docs.opengeospatial.org/is/18-010r7/18-010r7.html). Defaults to `4326` (EPSG code 4326) unless the client explicitly requests a different coordinate reference system.",
+                            "anyOf": [
+                                {
+                                    "title": "EPSG Code",
+                                    "type": "integer",
+                                    "subtype": "epsg-code",
+                                    "minimum": 1000,
+                                    "examples": [
+                                        3857
+                                    ]
+                                },
+                                {
+                                    "title": "WKT2",
+                                    "type": "string",
+                                    "subtype": "wkt2-definition"
+                                }
+                            ],
+                            "default": 4326
+                        }
+                    }
+                },
+                {
+                    "title": "Vector data cube",
+                    "description": "Limits the data cube to the bounding box of the given geometries in the vector data cube. For raster data, all pixels inside the bounding box that do not intersect with any of the polygons will be set to no data (`null`). Empty geometries are ignored.",
+                    "type": "object",
+                    "subtype": "datacube",
+                    "dimensions": [
+                        {
+                            "type": "geometry"
+                        }
+                    ]
+                },
+                {
+                    "title": "No filter",
+                    "description": "Don't filter spatially. All data is included in the data cube.",
+                    "type": "null"
+                }
+            ]
+        },
+        {
+            "name": "temporal_extent",
+            "description": "Temporal extent specified as two-element array with start and end date/date-time.",
+            "schema": {
+                "type": "array",
+                "subtype": "temporal-interval",
+                "uniqueItems": true,
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "subtype": "date-time",
+                            "format": "date-time"
+                        },
+                        {
+                            "type": "string",
+                            "subtype": "date",
+                            "format": "date"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
