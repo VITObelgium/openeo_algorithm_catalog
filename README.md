@@ -24,7 +24,7 @@ algorithm_name/
 |   └── README.md        # Documentation specific to the UDP
 └── benchmark_scenarios/  # Directory containing benchmark scenarios for the algorithm
     ├── example.ipynb  # Example Jupyter notebook demonstrating the algorithm usage
-    └── algorithm_name.json  # Benchmark scenario definition generated from the UDP demostrated in the notebook
+    └── algorithm_name.json  # Benchmark scenario definition generated from the UDP demonstrated in the notebook
 ├── utils/               # Directory containing utility scripts for the algorithm
 |__ changelog.md        # Changelog for the algorithm
     
