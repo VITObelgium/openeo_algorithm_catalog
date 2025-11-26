@@ -1,6 +1,16 @@
-# Changelog for **MOGPR** Service
+# Changelog for **MOGPR_S2** Service
 
-### Unreleased:
+### 26/11/2025
+
+#### Added
+- Migrated the MOGPR_S2 algorithm to a public GitHub repository.
+- Added benchmark scenario example notebook for MOGPR_S2 service.
+- Added the ndvi calculation step before applying the MOGPR_S2 function within the service.
+
+#### Updated
+- Updated the documentation to reflect the new repository location.
+- Spatial and temporal filtering done within the `load_collection` process.
+- Removed the `input_raster` parameter and updated to take spatial_extent and temporal_extent input parameters.
 
 ### Initial release
 

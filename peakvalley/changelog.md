@@ -1,6 +1,19 @@
 # Changelog for **Peak Valley** Service
 
-### Unreleased:
+
+### 26/11/2025
+
+#### Added
+- Migrated the Peak Valley algorithm to a public GitHub repository.
+- Added benchmark scenario example notebook for Peak Valley service.
+- Added the ndvi calculation step before applying the Peak Valley function within the service.
+
+#### Updated
+- Updated the documentation to reflect the new repository location.
+- Spatial and temporal filtering done within the `load_collection` process.
+- Removed the `input_raster` parameter and updated to take spatial_extent and temporal_extent input parameters.
+- Also added `drop_threshold` , `recovery_ratio` and `slope_threshold` as input parameters.
+
 
 ### 19/06/2025
 

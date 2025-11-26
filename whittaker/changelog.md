@@ -1,6 +1,17 @@
 # Changelog for **Whittaker** Service
 
-### Unreleased:
+### 26/11/2025
+
+#### Added
+- Migrated the Whittaker algorithm to a public GitHub repository.
+- Added benchmark scenario example notebook for Whittaker service.
+- Added the ndvi calculation step before applying the Whittaker smoothing within the service.
+
+#### Updated
+- Updated the documentation to reflect the new repository location.
+- Spatial and temporal filtering done within the `load_collection` process.
+- Removed the `input_raster` parameter and updated to take spatial_extent, temporal_extent and smoothing_lambda as input parameters.
+
 
 ### 19/06/2025
 
