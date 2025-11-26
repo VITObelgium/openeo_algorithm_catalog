@@ -73,7 +73,7 @@ def generate() -> dict:
         overlap=[],
     )
 
-    mogpr_ndvi = mogpr.aggregate_spatial(spatial_extent, reducer='mean')
+    mogpr_ndvi = mogpr.aggregate_spatial(spatial_extent, reducer="mean")
 
     return build_process_dict(
         process_graph=mogpr_ndvi,

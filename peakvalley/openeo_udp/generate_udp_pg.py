@@ -1,9 +1,8 @@
-""""
+""" "
 This script generates the OpenEO UDP for the PeakValley algorithm.
 Implemented by https://open-eo.github.io/FuseTS/
 Contact: marketplace@terrascope.be
 """
-
 
 import json
 from pathlib import Path
@@ -42,7 +41,10 @@ def get_peakvalley(
                 Path(__file__).parent.parent.parent / "utils" / "set_dependency_path.py"
             ).read_text()
             + "\n"
-            + load_peakvalley_udf(), runtime="Python",version="3.8", context=context
+            + load_peakvalley_udf(),
+            runtime="Python",
+            version="3.8",
+            context=context,
         ),
         dimension="t",
     )

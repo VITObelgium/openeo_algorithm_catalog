@@ -146,18 +146,22 @@ def load_s1_collection(connection, collection, polygon, date):
     collections = None
     for option in [
         {
-            'label': 'grd',
-            'function': _load_s1_grd_bands(connection=connection, polygon=polygon, date=date, bands=['VV', 'VH'])
+            "label": "grd",
+            "function": _load_s1_grd_bands(
+                connection=connection, polygon=polygon, date=date, bands=["VV", "VH"]
+            ),
         },
         {
-            'label': 'rvi',
-            'function': _load_rvi(connection=connection, polygon=polygon, date=date)
-        }
+            "label": "rvi",
+            "function": _load_rvi(connection=connection, polygon=polygon, date=date),
+        },
     ]:
-        collections = _build_collection_graph(collection=collection,
-                                              label=option['label'],
-                                              callable=option['function'],
-                                              reject=collections)
+        collections = _build_collection_graph(
+            collection=collection,
+            label=option["label"],
+            callable=option["function"],
+            reject=collections,
+        )
     return collections
 
 
@@ -176,37 +180,38 @@ def load_s2_collection(connection, collection, polygon, date):
     collections = None
     for option in [
         {
-            'label': 'ndvi',
-            'function': _load_ndvi(connection=connection, polygon=polygon, date=date)
-
+            "label": "ndvi",
+            "function": _load_ndvi(connection=connection, polygon=polygon, date=date),
         },
         {
-            'label': 'fapar',
-            'function': _load_biopar(polygon=polygon, date=date, biopar='FAPAR')
+            "label": "fapar",
+            "function": _load_biopar(polygon=polygon, date=date, biopar="FAPAR"),
         },
         {
-            'label': 'lai',
-            'function': _load_biopar(polygon=polygon, date=date, biopar='LAI')
+            "label": "lai",
+            "function": _load_biopar(polygon=polygon, date=date, biopar="LAI"),
         },
         {
-            'label': 'fcover',
-            'function': _load_biopar(polygon=polygon, date=date, biopar='FCOVER')
+            "label": "fcover",
+            "function": _load_biopar(polygon=polygon, date=date, biopar="FCOVER"),
         },
         {
-            'label': 'evi',
-            'function': _load_evi(connection=connection, polygon=polygon, date=date)
+            "label": "evi",
+            "function": _load_evi(connection=connection, polygon=polygon, date=date),
         },
         {
-            'label': 'ccc',
-            'function': _load_biopar(polygon=polygon, date=date, biopar='CCC')
+            "label": "ccc",
+            "function": _load_biopar(polygon=polygon, date=date, biopar="CCC"),
         },
         {
-            'label': 'cwc',
-            'function': _load_biopar(polygon=polygon, date=date, biopar='CWC')
-        }
+            "label": "cwc",
+            "function": _load_biopar(polygon=polygon, date=date, biopar="CWC"),
+        },
     ]:
-        collections = _build_collection_graph(collection=collection,
-                                              label=option['label'],
-                                              callable=option['function'],
-                                              reject=collections)
+        collections = _build_collection_graph(
+            collection=collection,
+            label=option["label"],
+            callable=option["function"],
+            reject=collections,
+        )
     return collections
