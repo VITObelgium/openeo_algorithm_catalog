@@ -49,7 +49,7 @@ def get_peakvalley(
 
 
 def generate() -> dict:
-    print("Generating UDP for MOGPR...")
+    print("Generating UDP for PeakValley...")
     connection = openeo.connect("openeofed.dataspace.copernicus.eu")
     print("Defining parameters...")
     spatial_extent = Parameter.spatial_extent(

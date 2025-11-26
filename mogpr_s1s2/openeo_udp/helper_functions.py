@@ -1,6 +1,7 @@
 """
 Helper functions to load the different input data cubes for the FUSETS MoGPR algorithm.
 """
+
 from openeo.processes import process, if_, eq
 
 
@@ -13,12 +14,10 @@ def _load_s1_grd_bands(connection, polygon, date, bands):
     :param bands: Bands to load
     :return:
     """
-    s1_grd = connection.load_collection('SENTINEL1_GRD',
-                                        spatial_extent=polygon,
-                                        temporal_extent=date,
-                                        bands=bands)
-    s1_grd = s1_grd.sar_backscatter(coefficient='sigma0-ellipsoid')
-    s1_grd = s1_grd.rename_labels(dimension="bands", target=bands)
+    s1_grd = connection.load_collection(
+        "SENTINEL1_GRD", spatial_extent=polygon, temporal_extent=date, bands=bands
+    )
+    s1_grd = s1_grd.sar_backscatter(coefficient="sigma0-ellipsoid")
     return s1_grd
 
 
@@ -30,10 +29,10 @@ def _load_rvi(connection, polygon, date):
     :param date: Time of interest
     :return:
     """
-    base_s1 = _load_s1_grd_bands(connection, polygon, date, ['VV', 'VH'])
+    base_s1 = _load_s1_grd_bands(connection, polygon, date, ["VV", "VH"])
 
-    VH = base_s1.band('VH')
-    VV = base_s1.band('VV')
+    VH = base_s1.band("VH")
+    VV = base_s1.band("VV")
     rvi = (VH + VH) / (VV + VH)
     return rvi.add_dimension(name="bands", label="RVI", type="bands")
 
@@ -41,6 +40,7 @@ def _load_rvi(connection, polygon, date):
 #######################################################################################################################
 #   S2 collection implementation
 #######################################################################################################################
+
 
 def _load_ndvi(connection, polygon, date):
     """
@@ -50,19 +50,19 @@ def _load_ndvi(connection, polygon, date):
     :param date:
     :return:
     """
-    base_s2 = connection.load_collection('SENTINEL2_L2A',
-                                         spatial_extent=polygon,
-                                         temporal_extent=date,
-                                         bands=["B04", "B08"])
-    scl = connection.load_collection('SENTINEL2_L2A',
-                                        spatial_extent=polygon,
-                                        temporal_extent=date,
-                                        bands=["SCL"])
+    base_s2 = connection.load_collection(
+        "SENTINEL2_L2A",
+        spatial_extent=polygon,
+        temporal_extent=date,
+        bands=["B04", "B08"],
+    )
+    scl = connection.load_collection(
+        "SENTINEL2_L2A", spatial_extent=polygon, temporal_extent=date, bands=["SCL"]
+    )
     mask = scl.process("to_scl_dilation_mask", data=scl)
     masked_s2 = base_s2.mask(mask)
-    ndvi = masked_s2.ndvi(red="B04", nir="B08", target_band='NDVI')
-    ndvi_filtered = ndvi.filter_bands(bands=['NDVI'])
-    return ndvi_filtered
+    ndvi = masked_s2.ndvi(red="B04", nir="B08")
+    return ndvi
 
 
 def _load_biopar(polygon, date, biopar):
@@ -80,7 +80,7 @@ def _load_biopar(polygon, date, biopar):
         namespace="https://raw.githubusercontent.com/ESA-APEx/apex_algorithms/refs/heads/main/algorithm_catalog/vito/biopar/openeo_udp/biopar.json",
         temporal_extent=date,
         spatial_extent=polygon,
-        biopar_type=biopar
+        biopar_type=biopar,
     )
     return base_biopar
 
@@ -94,21 +94,20 @@ def _load_evi(connection, polygon, date):
     :return:
     """
     base_s2 = connection.load_collection(
-        collection_id='SENTINEL2_L2A',
+        collection_id="SENTINEL2_L2A",
         spatial_extent=polygon,
         temporal_extent=date,
-        bands=['B02', 'B04', 'B08'],
+        bands=["B02", "B04", "B08"],
     )
-    scl = connection.load_collection('SENTINEL2_L2A',
-                                        spatial_extent=polygon,
-                                        temporal_extent=date,
-                                        bands=["SCL"])
+    scl = connection.load_collection(
+        "SENTINEL2_L2A", spatial_extent=polygon, temporal_extent=date, bands=["SCL"]
+    )
     mask = scl.process("to_scl_dilation_mask", data=scl)
     masked_s2 = base_s2.mask(mask)
 
-    B02 = masked_s2.band('B04')
-    B04 = masked_s2.band('B04')
-    B08 = masked_s2.band('B08')
+    B02 = masked_s2.band("B04")
+    B04 = masked_s2.band("B04")
+    B08 = masked_s2.band("B08")
 
     evi = (2.5 * (B08 - B04)) / ((B08 + 6.0 * B04 - 7.5 * B02) + 1.0)
     return evi.add_dimension(name="bands", label="EVI", type="bands")

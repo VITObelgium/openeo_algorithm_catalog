@@ -4,16 +4,14 @@ Implemented by https://open-eo.github.io/FuseTS/
 Contact: marketplace@terrascope.be
 """
 
-from typing import Union
 from pathlib import Path
 import json
 
 import openeo
 from fusets.openeo.phenology_udf import load_phenology_udf
 from fusets.openeo.services.publish_phenology import phenology_bands
-from openeo import DataCube
 from openeo.api.process import Parameter
-from openeo.processes import apply_dimension, ProcessBuilder
+from openeo.processes import apply_dimension
 from openeo.rest.udp import build_process_dict
 
 
