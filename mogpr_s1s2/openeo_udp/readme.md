@@ -14,7 +14,10 @@ The `mogpr_s1s2` service requires the following parameters:
 | s1_collection   | S1 data collection to use for the fusion                       | Text    | RVI     |
 | s2_collection   | S2 data collection to use for fusing the data                  | Text    | NDVI    |
 
+
 ## Supported collections
+
+The following Sentinel-1 and Sentinel-2 collections are supported for data fusion:
 
 #### Sentinel-1
 
@@ -33,16 +36,15 @@ The `mogpr_s1s2` service requires the following parameters:
 
 ## Limitations
 
-The spatial extent is limited to a maximum size equal to a Sentinel-2 MGRS tile (100 km x 100 km).
+To ensure optimal performance and manage computational resources effectively, the spatial extent is limited to a maximum size equal to a Sentinel-2 MGRS tile (100 km x 100 km).
 
 ## Dependencies
 
-In addition to various Python libraries, the workflow utilizes the following libraries included in the User-Defined Function (UDF):
+In addition to various Python libraries, the workflow utilizes the following libraries included in the User-Defined Function (UDF) environment:
 
 * Biopar: The `biopar` package retrieves biophysical parameters like FAPAR, FCOVER, and more, that were passed as the S2_collection. The biopar package is a Python package that calculates biophysical parameters from Sentinel-2 satellite images as described [here](https://step.esa.int/docs/extra/ATBD_S2ToolBox_L2B_V1.1.pdf). The `fusets_mogpr` udp directly uses the biopar udp shared in the APEX Algorithms repository. 
 
 * FuseTS: The `fusets` library was developed to facilitate data fusion and time-series analytics using AI/ML to extract insights about land environments. It functions as a Time Series & Data Fusion toolbox integrated with openEO. For additional information, please refer to the [FuseTS documentation](https://open-eo.github.io/FuseTS/installation.html).
-
 
 
 ## Output
