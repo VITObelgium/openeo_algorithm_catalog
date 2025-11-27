@@ -1,0 +1,248 @@
+{
+    "process_graph": {
+        "loadcollection1": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "B04",
+                    "B08"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "loadcollection2": {
+            "process_id": "load_collection",
+            "arguments": {
+                "bands": [
+                    "SCL"
+                ],
+                "id": "SENTINEL2_L2A",
+                "spatial_extent": {
+                    "from_parameter": "spatial_extent"
+                },
+                "temporal_extent": {
+                    "from_parameter": "temporal_extent"
+                }
+            }
+        },
+        "toscldilationmask1": {
+            "process_id": "to_scl_dilation_mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection2"
+                }
+            }
+        },
+        "mask1": {
+            "process_id": "mask",
+            "arguments": {
+                "data": {
+                    "from_node": "loadcollection1"
+                },
+                "mask": {
+                    "from_node": "toscldilationmask1"
+                }
+            }
+        },
+        "ndvi1": {
+            "process_id": "ndvi",
+            "arguments": {
+                "data": {
+                    "from_node": "mask1"
+                },
+                "nir": "B08",
+                "red": "B04"
+            }
+        },
+        "applydimension1": {
+            "process_id": "apply_dimension",
+            "arguments": {
+                "data": {
+                    "from_node": "ndvi1"
+                },
+                "dimension": "t",
+                "process": {
+                    "process_graph": {
+                        "runudf1": {
+                            "process_id": "run_udf",
+                            "arguments": {
+                                "context": {
+                                    "drop_thr": {
+                                        "from_parameter": "drop_threshold"
+                                    },
+                                    "rec_r": {
+                                        "from_parameter": "recovery_ratio"
+                                    },
+                                    "slope_thr": {
+                                        "from_parameter": "slope_threshold"
+                                    }
+                                },
+                                "data": {
+                                    "from_parameter": "data"
+                                },
+                                "runtime": "Python",
+                                "udf": "\"\"\"\nRelevant for the algorithms offered by AI4Food as part of [FuseTS](https://open-eo.github.io/FuseTS/), specifically:\n- mogpr/\n- mogpr_s1s2/\n- peak_valley_detection/\n- phenology/\n- whittaker/\n\nThis module provides utility functions to download a zip file from a given URL,\nextract its contents to a temporary directory, move the top-level folder to a specified\ndestination, and add that folder to the Python sys.path for module imports.\n\n\"\"\"\n\nimport os\nimport sys\nimport zipfile\nimport requests\nimport tempfile\nimport shutil\nimport functools\n\nfrom openeo.udf import inspect\n\n\ndef download_file(url, path):\n    \"\"\"\n    Downloads a file from the given URL to the specified path.\n    \"\"\"\n    response = requests.get(url, stream=True)\n    with open(path, \"wb\") as file:\n        file.write(response.content)\n\n\ndef extract_zip_to_temp(zip_path, temp_dir):\n    \"\"\"\n    Extracts a zip file into the given temporary directory.\n    \"\"\"\n    with zipfile.ZipFile(zip_path, \"r\") as zip_ref:\n        zip_ref.extractall(temp_dir)  # Use the existing temp_dir\n    return temp_dir\n\n\ndef move_top_level_folder_to_destination(temp_dir, destination_dir):\n    \"\"\"\n    Moves each top-level folder from the temporary directory to the destination directory.\n    Throws an error if the folder already exists at the destination.\n    \"\"\"\n    # Find the top-level folders inside the extracted zip\n    for item in os.listdir(temp_dir):\n        item_path = os.path.join(temp_dir, item)\n\n        if os.path.isdir(item_path):\n            # Check if the folder already exists at destination\n            dest_path = os.path.join(destination_dir, item)\n\n            if os.path.exists(dest_path):\n                # Throw an error if the folder already exists\n                raise FileExistsError(\n                    f\"Error: The folder '{item}' already exists in the destination directory: {dest_path}\"\n                )\n\n            # Move the folder out of temp and into the destination directory\n            shutil.move(item_path, dest_path)\n\n\ndef add_to_sys_path(folder_path):\n    \"\"\"\n    Adds the folder path to sys.path.\n    \"\"\"\n    if folder_path not in sys.path:\n        sys.path.append(folder_path)\n\n\n@functools.lru_cache(maxsize=5)\ndef setup_dependencies(dependencies_url):\n    \"\"\"\n    Main function to download, unzip, move the top-level folder, and add it to sys.path.\n    \"\"\"\n    with tempfile.TemporaryDirectory() as temp_dir:\n        # Step 1: Download the zip file\n        zip_path = os.path.join(temp_dir, \"temp.zip\")\n        download_file(dependencies_url, zip_path)\n\n        inspect(message=\"Extract dependencies to temp\")\n        # Step 2: Extract the zip file to the temporary directory\n        extracted_dir = extract_zip_to_temp(zip_path, temp_dir)\n\n        # Step 3: Move the first top-level folder (dynamically) to the destination\n        destination_dir = os.getcwd()  # Current working directory\n        inspect(message=\"Move top-level folder to destination\")\n        moved_folder = move_top_level_folder_to_destination(\n            extracted_dir, destination_dir\n        )\n\n        # Step 4: Add the folder to sys.path\n        add_to_sys_path(moved_folder)\n        inspect(message=\"Added to the sys path\")\n\n\n# call the setup_dependencies function with the specific URL\nsetup_dependencies(\n    \"https://artifactory.vgt.vito.be:443/artifactory/auxdata-public/ai4food/fusets_venv.zip\"\n)\n\nimport sys\nfrom pathlib import Path\nfrom typing import Dict\n\nfrom openeo.udf import XarrayDataCube\n\n\ndef load_venv():\n    \"\"\"\n    Add the virtual environment to the system path if the folder `/tmp/venv_static` exists\n    :return:\n    \"\"\"\n    for venv_path in ['tmp/venv_static', 'tmp/venv']:\n        if Path(venv_path).exists():\n            sys.path.insert(0, venv_path)\n\n\ndef apply_datacube(cube: XarrayDataCube, context: Dict) -> XarrayDataCube:\n    \"\"\"\n    Apply phenology to a datacube\n    @param cube:\n    @param context:\n    @return:\n    \"\"\"\n    load_venv()\n\n    from fusets import peakvalley\n\n    drop_thr = context.get('drop_thr', 0.15)\n    rec_r = context.get('rec_r', 1.0)\n    slope_thr = context.get('slope_thr', -0.007)\n\n    result = peakvalley(cube.get_array(), drop_thr=drop_thr, rec_r=rec_r, slope_thr=slope_thr)\n    return XarrayDataCube(result)\n\n\ndef load_peakvalley_udf() -> str:\n    \"\"\"\n    Loads an openEO udf that applies peak valley detection service.\n    @return:\n    \"\"\"\n    import os\n    return Path(os.path.realpath(__file__)).read_text()\n",
+                                "version": "3.8"
+                            },
+                            "result": true
+                        }
+                    }
+                }
+            },
+            "result": true
+        }
+    },
+    "id": "peakvalley",
+    "summary": "Detect peaks and valleys in a time series",
+    "description": "# Peak Valley Detection\n\n## Overview\n\nThe `peakvalley` process provides automated detection of peaks and valleys in time-series data by analysing amplitude changes and slope patterns. It identifies significant drops, recoveries, and inflexion points to classify each time step as a peak, a valley, or a neutral state. \nThis process is particularly useful for applications such as vegetation phenology monitoring, hydrological studies, and climate data analysis.\n\n## Parameters\n\nThe `mogpr_s2` service requires the following parameters:\n\n\n| Name            | Description                                                    | Type    | Default |\n| --------------- | -------------------------------------------------------------- | ------- | ------- |\n| spatial_extent  | Polygon representing the AOI on which to apply the data fusion | GeoJSON |         |\n| temporal_extent | Date range for which to apply the data fusion                  | Array   |         |\n| drop_threshold  | Threshold to drop low confidence predictions                   | Float   | 0.15    |\n| recovery_ratio  | Ratio to recover from drops in the data                        | Float   | 1.0     |\n| slope_threshold  | Threshold to identify steep slopes in the data                | Float   | 0.007   |\n",
+    "parameters": [
+        {
+            "name": "spatial_extent",
+            "description": "Limits the data to process to the specified bounding box or polygons.\\n\\nFor raster data, the process loads the pixel into the data cube if the point at the pixel center intersects with the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC).\\nFor vector data, the process loads the geometry into the data cube if the geometry is fully within the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC). Empty geometries may only be in the data cube if no spatial extent has been provided.\\n\\nEmpty geometries are ignored.\\nSet this parameter to null to set no limit for the spatial extent.",
+            "schema": [
+                {
+                    "title": "Bounding Box",
+                    "type": "object",
+                    "subtype": "bounding-box",
+                    "required": [
+                        "west",
+                        "south",
+                        "east",
+                        "north"
+                    ],
+                    "properties": {
+                        "west": {
+                            "description": "West (lower left corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "south": {
+                            "description": "South (lower left corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "east": {
+                            "description": "East (upper right corner, coordinate axis 1).",
+                            "type": "number"
+                        },
+                        "north": {
+                            "description": "North (upper right corner, coordinate axis 2).",
+                            "type": "number"
+                        },
+                        "base": {
+                            "description": "Base (optional, lower left corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "height": {
+                            "description": "Height (optional, upper right corner, coordinate axis 3).",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "default": null
+                        },
+                        "crs": {
+                            "description": "Coordinate reference system of the extent, specified as as [EPSG code](http://www.epsg-registry.org/) or [WKT2 CRS string](http://docs.opengeospatial.org/is/18-010r7/18-010r7.html). Defaults to `4326` (EPSG code 4326) unless the client explicitly requests a different coordinate reference system.",
+                            "anyOf": [
+                                {
+                                    "title": "EPSG Code",
+                                    "type": "integer",
+                                    "subtype": "epsg-code",
+                                    "minimum": 1000,
+                                    "examples": [
+                                        3857
+                                    ]
+                                },
+                                {
+                                    "title": "WKT2",
+                                    "type": "string",
+                                    "subtype": "wkt2-definition"
+                                }
+                            ],
+                            "default": 4326
+                        }
+                    }
+                },
+                {
+                    "title": "Vector data cube",
+                    "description": "Limits the data cube to the bounding box of the given geometries in the vector data cube. For raster data, all pixels inside the bounding box that do not intersect with any of the polygons will be set to no data (`null`). Empty geometries are ignored.",
+                    "type": "object",
+                    "subtype": "datacube",
+                    "dimensions": [
+                        {
+                            "type": "geometry"
+                        }
+                    ]
+                },
+                {
+                    "title": "No filter",
+                    "description": "Don't filter spatially. All data is included in the data cube.",
+                    "type": "null"
+                }
+            ]
+        },
+        {
+            "name": "temporal_extent",
+            "description": "Temporal extent specified as two-element array with start and end date/date-time.",
+            "schema": {
+                "type": "array",
+                "subtype": "temporal-interval",
+                "uniqueItems": true,
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "subtype": "date-time",
+                            "format": "date-time"
+                        },
+                        {
+                            "type": "string",
+                            "subtype": "date",
+                            "format": "date"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "drop_threshold",
+            "description": "Threshold value for the amplitude of the drop in the input feature",
+            "schema": {
+                "type": "number"
+            },
+            "default": 0.15,
+            "optional": true
+        },
+        {
+            "name": "recovery_ratio",
+            "description": "Threshold value for the amplitude of the recovery, relative to the `drop_delta`",
+            "schema": {
+                "type": "number"
+            },
+            "default": 1,
+            "optional": true
+        },
+        {
+            "name": "slope_threshold",
+            "description": "Threshold value for the slope where the peak should start",
+            "schema": {
+                "type": "number"
+            },
+            "default": -0.007,
+            "optional": true
+        }
+    ]
+}
