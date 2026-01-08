@@ -3,10 +3,7 @@
     "features": [
         {
             "type": "Feature",
-            "properties": {
-                "name": "spatial_extent_1km",
-                "resolution": "1km"
-            },
+            "properties": {},
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [

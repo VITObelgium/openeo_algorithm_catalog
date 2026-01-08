@@ -3,10 +3,7 @@
     "features": [
         {
             "type": "Feature",
-            "properties": {
-                "name": "spatial_extent_300m",
-                "resolution": "300m"
-            },
+            "properties": {},
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
