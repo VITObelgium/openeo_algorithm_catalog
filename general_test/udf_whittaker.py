@@ -10,7 +10,6 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
 from openeo.udf import inspect
-from openeo.metadata import CollectionMetadata
 
 
 def whittaker_1d(y, lmbda=10, d=2, weights=None):
