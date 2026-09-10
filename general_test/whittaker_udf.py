@@ -65,6 +65,7 @@ import pandas as pd
 import xarray
 from xarray import DataArray
 from openeo.udf import XarrayDataCube
+from openeo.udf import inspect
 # ---------------------------------------------------------------------------
 # Optional speed-up: use numba to JIT-compile the inner ws2d kernel if numba
 # happens to be available in the runtime. This is entirely optional -- the
@@ -247,6 +248,9 @@ def whittaker_f(x: List[datetime], y: np.ndarray, lmbd: Union[float, list], d: i
         `(z1_, xx, Zd, XXd)`: the full daily smoothed series and its
         dates, plus the `d`-spaced subsample and its dates.
     """
+    inspect(message="lambda in whittaker_f: {}".format(lmbd))
+    inspect(message="prediction period in whittaker_f: {}".format(d))
+
     y = np.asarray(y, dtype=np.float64)
     D1 = get_all_dates(x)
     D11 = D1[~np.isnan(y)]
@@ -329,7 +333,7 @@ def _output_dates(prediction_period: int, start_date: datetime, end_date: dateti
 
 def whittaker(
     array: DataArray,
-    smoothing_lambda: Union[float, int, list] = np.log10(10000),
+    smoothing_lambda: Union[float, int, list] = 10000,
     time_dimension: str = "t",
     prediction_period: int = 0,
 ) -> DataArray:
@@ -353,6 +357,8 @@ def whittaker(
     Returns:
         A smoothed DataArray with the same dimensions as `array`.
     """
+    inspect(message="lambda in whittaker: {}".format(smoothing_lambda))
+    inspect(message="prediction period in whittaker: {}".format(prediction_period))
     dates = _extract_dates(array)
     time_dimension = _time_dimension(array, time_dimension)
 
@@ -364,7 +370,7 @@ def whittaker(
         output_time_dimension = "t_new"
 
     def callback(timeseries):
-        _, _, Zd, XXd = whittaker_f(dates, timeseries, smoothing_lambda, 1)
+        _, _, Zd, XXd = whittaker_f(dates, timeseries, smoothing_lambda, prediction_period)
         dates_mask = np.isin(XXd, output_dates)
         return Zd[dates_mask]
 
@@ -399,9 +405,13 @@ def apply_datacube(cube: XarrayDataCube, context: dict) -> XarrayDataCube:
         XarrayDataCube: same shape/dims as input, smoothed along 't'
     """
     context = context or {}
+    inspect(message="context: {}".format(context))
     smoothing_lambda = context.get("smoothing_lambda", 10000)
+    inspect(message="smoothing_lambda: {}".format(smoothing_lambda))
     time_dimension = context.get("time_dimension", "t")
+    inspect(message="time_dimension: {}".format(time_dimension))
     prediction_period = context.get("prediction_period", 2)
+    inspect(message="prediction_period: {}".format(prediction_period))
 
     smoothed = whittaker(
         cube.get_array(),
