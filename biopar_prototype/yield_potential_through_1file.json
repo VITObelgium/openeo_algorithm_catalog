@@ -1,0 +1,192 @@
+{
+  "process_graph": {
+    "biopar1": {
+      "process_id": "biopar",
+      "arguments": {
+        "biopar_type": "FAPAR",
+        "spatial_extent": {
+          "from_parameter": "geometry"
+        },
+        "temporal_extent": {
+          "from_parameter": "temporal_extent"
+        }
+      },
+      "namespace": "https://raw.githubusercontent.com/ESA-APEx/apex_algorithms/refs/heads/main/algorithm_catalog/vito/biopar/openeo_udp/biopar.json"
+    },
+    "runudf1": {
+      "process_id": "run_udf",
+      "arguments": {
+        "context": {
+          "year_check": {
+            "from_parameter": "year_check"
+          },
+          "exclude_croptypes": {
+            "from_parameter": "exclude_croptypes"
+          },
+          "date_range": {
+            "from_parameter": "temporal_extent"
+          }
+        },
+        "data": {
+          "from_parameter": "geometry"
+        },
+        "runtime": "Python",
+        "udf": "import datetime\nimport json\nimport logging\nimport re\n\nimport pyproj\nimport requests\nfrom openeo.udf import UdfData, FeatureCollection, inspect\nfrom shapely.geometry import Polygon, shape\nfrom shapely.ops import transform\n\n_log = logging.getLogger(\"yieldpotentialmap_check_udf\")\n\n\ndef reproject_field(field: Polygon, from_proj: str, to_proj: str) -> Polygon:\n    \"\"\"\n    Reproject a field from a source projection system to a destination projection system\n    :param field: Field to reproject\n    :param from_proj: Source projection system\n    :param to_proj: Destination projection system\n    :return:\n    \"\"\"\n    from_crs = pyproj.CRS(from_proj)\n    to_crs = pyproj.CRS(to_proj)\n    project = pyproj.Transformer.from_crs(from_crs, to_crs, always_xy=True).transform\n    return transform(project, field)\n\n\ndef feature_field_overlap(feature: object, field: shape) -> bool:\n    \"\"\"\n    Check if a feature is overlapping with given field polygon. This done by checking the area of the intersection. If\n    the feature covers the field for >10%, it is considered that the feature is overlapping with the field\n    :param feature: Feature to check\n    :param field: Field to check\n    :return:\n    \"\"\"\n    feature_geom = shape(feature['geometry'])\n    intersection = field.intersection(feature_geom)\n    return intersection.area / field.area >= 0.1\n\ndef check_year_valid(geometry: shape, year: int, exclude_croptypes: list) -> bool:\n    \"\"\"\n    Check if the current year of the yield potential map is a valid year. A year is considered valid if the following\n    conditions are met:\n        1. The field is not split in multiple parts for the given year\n        2. The crop type, grown for the given year, is not blacklisted\n\n    This is done by iterating through the different regions (Flanders and Walloon). If the above conditions are valid\n    for one of these regions, the year is considered valid. If all regions fail, meaning the year is not valid,\n    an exception is raised.\n\n    :param geometry: Geometry representing the field to process\n    :param year: Year for which to execute the check\n    :param exclude_croptypes: List of crop types to be blacklisted\n    :return:\n    \"\"\"\n    messages = list()\n\n\n    for check in [check_field_flanders, check_field_walloon]:\n        _log.debug(f'Checking if year {year} is valid')\n        valid, message = check(year=year, field=geometry, croptype_blacklist=exclude_croptypes)\n        messages.append(message)\n        if valid:\n            return True\n\n    raise Exception(f'Field is not valid: {\", \".join(messages)}')\n\n\ndef check_field_flanders(year: int, field: shape, croptype_blacklist=None) -> tuple:\n    \"\"\"\n    Check the field conditions in Flanders. Based on the DLV data, the following conditions are checked\n        1. Is the field located in Flanders?\n        2. Has the field multiple matches in Flanders? If so, the field is considered to be split\n        3. Has the field a crop type that has been blacklisted?\n\n    :param year: Year for which to check the conditions\n    :param field: Field to check\n    :param croptype_blacklist: List of crop types that should be blacklisted\n    :return: Tuple that contains a boolean, indicating if the field satisfies all conditions, and a corresponding\n    message\n    \"\"\"\n    if croptype_blacklist is None:\n        croptype_blacklist = []\n\n    bounds = field.bounds\n    url = 'https://geoservices.landbouwvlaanderen.be/PUBLIC/wfs?service=WFS&version=1.1.0&request=GetFeature&' \\\n          'typeName=PUBLIC:AGRIPRC{}&styles=&srsName=EPSG:4326&bbox={},{},{},{},EPSG:4326&srs=EPSG:4326&' \\\n          'outputformat=JSON' \\\n        .format(str(year), str(bounds[0]), str(bounds[1]), str(bounds[2]), str(bounds[3]))\n\n    inspect(message=f'Checking field in Flanders url: {url}')\n\n    response = requests.get(url)\n    if response.status_code != 200:\n        return False, f'Could not find execute request to DLV: {response.status_code} - {response.text}'\n\n    features = list(filter(lambda x: feature_field_overlap(feature=x, field=field), response.json()['features']))\n    if len(features) == 0:\n        return False, f'No features were found in the DLV response'\n    if len(features) > 1:\n        return False, f'Found {len(features)} matches in the DLV response, the field was probably split up in {year}'\n\n    if features[0]['properties']['MAINCROPGROUP'] in croptype_blacklist:\n        return False, f'Croptype {features[0][\"properties\"][\"MAINCROPGROUP\"]} is blacklisted'\n\n    return True, ''\n\n\ndef check_field_walloon(year: int, field: shape, croptype_blacklist: list = None) -> tuple:\n    \"\"\"\n    Check the field conditions in Walloon. Based on the Walloon GeoServices data, the following conditions are checked\n        1. Is the field located in Walloon?\n        2. Has the field multiple matches in Walloon? If so, the field is considered to be split\n        3. Has the field a crop type that has been blacklisted?\n\n    :param year: Year for which to check the conditions\n    :param field: Field to check\n    :param croptype_blacklist: List of crop types that should be blacklisted\n    :return: Tuple that contains a boolean, indicating if the field satisfies all conditions, and a corresponding\n     message\n    \"\"\"\n\n    if croptype_blacklist is None:\n        croptype_blacklist = []\n\n    _log.debug('Checking field in Walloon')\n\n    field_lambert = reproject_field(field=field, from_proj='EPSG:4326', to_proj='EPSG:31370')\n    bounds = field_lambert.bounds\n    url = 'https://geoservices.wallonie.be/arcgis/services/WFS/SIGEC_PARC_AGRI_ANON/MapServer/WFSServer?' \\\n          'service=WFS&request=GetFeature&version=2.0.0&typename=SIGEC_PARC_AGRI_ANON:Parcelles_agricoles___{}_&' \\\n          'srsname=EPSG:31370&outputFormat=geojson&count=1000&bbox={},{},{},{},EPSG:31370'\\\n        .format(str(year), str(bounds[0]), str(bounds[1]), str(bounds[2]), str(bounds[3]))\n\n    response = requests.get(url)\n    if response.status_code != 200:\n        return False, f'Could not find execute request to Walloon GeoServices: {response.status_code} - {response.text}'\n\n    # Intervention required as the Walloon response is not a valid JSON\n    response_json = json.loads(re.sub('\\\"SURF_HA\\\": \\d+,\\d+,\\n', '', response.text))\n\n    features = list(filter(lambda x: feature_field_overlap(feature=x, field=field_lambert), response_json['features']))\n    if len(features) == 0:\n        return False, f'No features were found in the Walloon response'\n    if len(features) > 1:\n        return False, f'Found {len(features)} matches in the Walloon response, the field was probably split up in {year}'\n\n    if features[0]['properties']['CULT_COD'] in croptype_blacklist:\n        return False, f'Croptype {features[0][\"properties\"][\"CULT_COD\"]} is blacklisted'\n\n    return True, ''\n\n\ndef get_year(date_range: list) -> int:\n    \"\"\"\n    Retrieve the year based on the specified date range. In this case we select the largest year\n    :param date_range:\n    :return:\n    \"\"\"\n    if not date_range or len(date_range) == 0:\n        return datetime.date.today().year\n    else:\n        return max(map(lambda x: int(x.split('-')[0]), date_range))\n\n\ndef fct_buffer(udf_data: UdfData):\n    \"\"\"\n    Execution of the UDF on a vector collection\n    :param udf_data: Data containing the vector information\n    :return:\n    \"\"\"\n    feature_collection = udf_data.get_feature_collection_list()[0]\n    execute_check = udf_data.user_context.get('year_check', False)\n    exclude_croptypes = udf_data.user_context.get('exclude_croptypes', [])\n    year = get_year(udf_data.user_context.get('date_range', []))\n    data = feature_collection.data\n\n    if execute_check:\n        data = data[data.geometry.apply(\n            (lambda g: check_year_valid(geometry=g, exclude_croptypes=exclude_croptypes, year=year)))]\n\n    udf_data.set_feature_collection_list(feature_collection_list=[\n        FeatureCollection.from_dict({\n            \"id\": feature_collection.id,\n            \"data\": data,\n            \"start_times\": feature_collection.start_times,\n            \"end_times\": feature_collection.end_times\n        })\n    ])\n\n    return udf_data\n"
+      }
+    },
+    "applypolygon1": {
+      "process_id": "apply_polygon",
+      "arguments": {
+        "data": {
+          "from_node": "biopar1"
+        },
+        "geometries": {
+          "from_node": "runudf1"
+        },
+        "mask_value": 999.0,
+        "process": {
+          "process_graph": {
+            "runudf2": {
+              "process_id": "run_udf",
+              "arguments": {
+                "context": {
+                  "band": "FAPAR",
+                  "threshold": {
+                    "from_parameter": "threshold"
+                  },
+                  "exclude_months": {
+                    "from_parameter": "exclude_months"
+                  },
+                  "mask_value": 999.0,
+                  "raw": {
+                    "from_parameter": "raw"
+                  },
+                  "polygonize": {
+                    "from_parameter": "polygonize"
+                  }
+                },
+                "data": {
+                  "from_parameter": "data"
+                },
+                "runtime": "Python",
+                "udf": "import logging\nfrom typing import Dict, Tuple\n\nimport geopandas as gpd\nimport numpy as np\nimport xarray as xr\nfrom openeo.udf.xarraydatacube import XarrayDataCube\nfrom shapely.geometry import shape\nfrom shapely.geometry.polygon import Polygon, Point\n\n_log = logging.getLogger(\"yieldpotentialmap_udf\")\n\nBAND_NAME = 'relative_diff'\n\n\ndef get_mean_and_median(data: xr.DataArray, date: np.datetime64, band: str, mask: list) -> Tuple:\n    \"\"\"\n    Retrieve the mean and median value for date in a xarray DataArray. The pixels that contain a value, provided by the\n    mask, will be excluded from the calculation\n    :param data: xarray DataArray containing the data\n    :param band: Name of the band that contains the value to check\n    :param date: Date for which to calculate the median value\n    :param mask: List of values to mask\n    :return: Tuple containing the mean and median values\n    \"\"\"\n    pixels = data.sel(t=date).sel(bands=band).astype('float32')\n    pixels = mask_values(data=pixels, values=mask, drop=True)\n    return pixels.mean(skipna=True).values.tolist(), pixels.median(skipna=True).values.tolist()\n\n\ndef filter_dates(data: xr.DataArray, band: str, threshold: float, exclude_months: list, mask: list) -> dict:\n    \"\"\"\n    Filter the data in the given xarray DataArray based on the time dimension. For each date in the array, we will\n    check if the following conditions:\n        * If the month of the date should not be excluded\n        * If the median value of the date is above a certain threshold\n    If one of the above conditions fail, the date is removed from the DataArray.\n    :param data: xarray DataArray to check\n    :param band: Name of the band that contains the value to check\n    :param threshold: Threshold for the median value for a given date\n    :param exclude_months: Months that should be removed from the DataArray\n    :param mask: List of value to mask when calculating the median value\n    :return: A dictionary containing the dates as keys and the median for each date as the value\n    \"\"\"\n    result = {}\n    for date in list(data.t.values):\n        _log.debug(f'Checking if {date} needs to be filtered')\n\n        month = date.astype('datetime64[M]').astype(int) % 12 + 1\n        if month in list(exclude_months):\n            _log.debug(f'Date {date} is in excluded mont;hs')\n            continue\n\n        mean, median = get_mean_and_median(data=data, date=date, band=band, mask=mask)\n        if (threshold and mean < threshold) or np.isnan(mean):\n            _log.debug(f'Date {date} is below threshold {threshold}')\n            continue\n        result[str(date)] = median\n    return result\n\n\ndef categorize_map(cube: xr.DataArray) -> xr.DataArray:\n    \"\"\"\n    Map the data in xarray DataArray to categories. The NaN values are automatically filtered in the result.\n    :param cube: xarray DataArray to categorize\n    :return:\n    \"\"\"\n    classification_values = [-3e10, 92.5, 97.5, 102.5, 107.5, 3e10]\n    data = cube.values\n    categorized = np.digitize(data, classification_values)\n    categorized = categorized.astype('float32')\n    categorized[categorized == len(classification_values)] = np.nan\n    cube.values = categorized\n    return cube\n\n\ndef generate_map(cube: xr.DataArray, band: str, filtered_results: dict, mask: list,\n                 raw: bool = True) -> xr.DataArray:\n    \"\"\"\n    Generate the yield potential map based on a set of input parameters\n    :param cube: xarray DateCube containing the pixel values\n    :param band: Name of the band that contains the value to check\n    :param filtered_results: Dictionary containing the dates that should be used and their respective median values\n    :param mask: List of values to mask when generating the map\n    :param raw: Flag indicating if the raw values should be returned (True) or if the map should contain\n    categories (False)\n    :return: xarray DataArray representing the yield potential map\n    \"\"\"\n    map_result = generate_relative_diff(cube=cube, band=band, filtered_results=filtered_results, mask=mask)\n    if not raw:\n        map_result = categorize_map(cube=map_result)\n    return map_result\n\n\ndef mask_values(data: xr.DataArray, values: list, drop: bool) -> xr.DataArray:\n    \"\"\"\n    Mask a list of values in a given xarray DataArray\n    :param data: xarray DataArray to mask\n    :param values: Values that should be masked\n    :param drop: Flag indicating if the values should be removed from the array\n    :return:\n    \"\"\"\n    for value in values:\n        data = data.where(data != value, drop=drop)\n    return data\n\n\ndef generate_relative_diff(cube: xr.DataArray, band: str, filtered_results: dict, mask: list) -> xr.DataArray:\n    \"\"\"\n    For each valid date, calculate the relative differences of each pixel to the median value\n    :param cube: xarray DataArray containing the pixel values\n    :param band: Name of the band that contains the value to check\n    :param filtered_results: Dictionary containing the dates that should be used and their respective median values\n    :param mask: List of values to mask when calculating the differences\n    :return:\n    \"\"\"\n    dates = [np.datetime64(d) for d in filtered_results.keys()]\n    year = dates[0].astype('datetime64[Y]').astype(int) + 1970\n    medians = xr.DataArray(list(filtered_results.values()), dims='t', coords={'t': dates})\n    data = cube.where(cube.t.isin(dates), drop=True).sel(bands=band).astype('float32')\n    data = mask_values(data=data, values=mask, drop=False)\n\n    relative_diff = ((data - medians) / medians) * 100\n    relative_diff = relative_diff.mean(dim=['t'], skipna=True)\n    relative_diff = relative_diff + 100\n\n    map_dc = cube.isel(t=0).isel(bands=0).copy()\n    map_dc.values = relative_diff\n    map_dc = map_dc.expand_dims(dim='bands', axis=0).assign_coords(bands=[BAND_NAME])\n    map_dc = map_dc.expand_dims(dim='t', axis=0).assign_coords(t=[np.datetime64(f'{year}-01-01T00:00:00')])\n    return map_dc\n\ndef create_map_df(cube: xr.DataArray) -> gpd.GeoDataFrame:\n    \"\"\"\n    Transform a xarray DataArray containing the yield potential map to a geopandas dataframe\n    :param cube: xarray DataArray to transform\n    :return: Geopandas Dataframe that contains a polygon for each pixel and its assigned value\n    \"\"\"\n    buffer = 10\n\n    map_dc = cube.isel(t=0).sel(bands=BAND_NAME).to_dataframe('categories').reset_index().drop(\n        columns=['t', 'bands']).dropna()\n\n    map_dc['geometry'] = map_dc.apply(lambda x: Polygon(\n        [[x.x, x.y], [x.x + buffer, x.y], [x.x + buffer, x.y + buffer], [x.x, x.y + buffer],\n         [x.x, x.y]]), axis=1)\n\n    map_dc = map_dc.drop(columns=['x', 'y']).set_geometry('geometry')\n    return map_dc\n\n\ndef polygonize_map(cube: XarrayDataCube) -> XarrayDataCube:\n    \"\"\"\n    Polygonize the raster to create different zones delineated through polygons\n    :param cube: xarray DataCube containing the final map to poligonize\n    :return:\n    \"\"\"\n    data = create_map_df(cube.get_array())\n    result = xr.DataArray.from_series(data['categories']).reset_index('index', drop=True)\n    result = result.expand_dims(geometry=data['geometry'])\n    return XarrayDataCube(result)\n\n\ndef apply_datacube(cube: XarrayDataCube, context: Dict) -> XarrayDataCube:\n    \"\"\"\n    OpenEO UDF callback that will generate the yield map\n    :param cube: XarrayDataCube containing the inputs coming from OpenEO\n    :param context: Additional context of the UDF\n    :return:\n    \"\"\"\n    _log.debug(f'Executing UDF for yield potential map')\n    data = cube.get_array()\n\n    # Extract the context information\n    band = context.get('band', None)\n    threshold = context.get('threshold', None)\n    raw = context.get('raw', True)\n    exclude_months = context.get('exclude_months', [])\n    masked_values = [context.get('mask_value', 999.0)]\n    polygonize = context.get('polygonize', False)\n\n    # Filter dates that are above a certain threshold and are not located in specific months (e.g. green manure)\n    filtered_dates = filter_dates(data=data, band=band, threshold=threshold, exclude_months=exclude_months,\n                                  mask=masked_values)\n\n    if len(filtered_dates.keys()) == 0:\n        raise Exception(f'Could not find any valid dates to process.')\n\n    # Create the actual yield potential map\n    map_dc = generate_map(cube=data, band=band, filtered_results=filtered_dates, mask=masked_values, raw=raw)\n    result = XarrayDataCube(map_dc.astype('float32'))\n\n    # Check if we need to polygonize the map\n    if polygonize:\n        return polygonize_map(cube=result)\n    else:\n        return result\n\n\ndef execute_datefilter_udf(cube: XarrayDataCube, context: Dict) -> XarrayDataCube:\n    \"\"\"\n    Local function used for testing purposes\n    :param cube: XarrayDataCube containing the inputs coming from OpenEO\n    :param context: Additional context of the UDF\n    :return:\n    \"\"\"\n    return apply_datacube(cube=cube, context=context)\n"
+              },
+              "result": true
+            }
+          }
+        }
+      },
+      "result": true
+    }
+  },
+  "id": "yp_cdse_v1",
+  "description": "yield potential calculation based on Sentinel-2 data",
+  "parameters": [
+    {
+      "name": "geometry",
+      "description": "Limits the data to process to the specified bounding box or polygons.\\n\\nFor raster data, the process loads the pixel into the data cube if the point at the pixel center intersects with the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC).\\nFor vector data, the process loads the geometry into the data cube if the geometry is fully within the bounding box or any of the polygons (as defined in the Simple Features standard by the OGC). Empty geometries may only be in the data cube if no spatial extent has been provided.\\n\\nEmpty geometries are ignored.\\nSet this parameter to null to set no limit for the spatial extent.",
+      "schema": {
+        "type": "object",
+        "subtype": "geojson"
+      }
+    },
+    {
+      "name": "temporal_extent",
+      "description": "Date range for which to calculate the yield potential map",
+      "schema": {
+        "type": "array",
+        "subtype": "temporal-interval",
+        "uniqueItems": true,
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "anyOf": [
+            {
+              "type": "string",
+              "subtype": "date-time",
+              "format": "date-time"
+            },
+            {
+              "type": "string",
+              "subtype": "date",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "threshold",
+      "description": "Average FAPAR threshold",
+      "schema": {
+        "type": "number"
+      },
+      "default": 0.5,
+      "optional": true
+    },
+    {
+      "name": "exclude_months",
+      "description": "Months that should be removed from the yield potential map generation procedure",
+      "schema": {
+        "type": "array"
+      },
+      "default": [
+        1,
+        2,
+        3,
+        4,
+        9,
+        10,
+        11,
+        12
+      ],
+      "optional": true
+    },
+    {
+      "name": "exclude_croptypes",
+      "description": "Croptypes for which we do not calculate a yield potential map",
+      "schema": {
+        "type": "array"
+      },
+      "default": [
+        "Wintertarwe",
+        "Wintergerst",
+        "6",
+        "743",
+        "321",
+        "311"
+      ],
+      "optional": true
+    },
+    {
+      "name": "raw",
+      "description": "Flag indicating if the raw values should be returned (True) or if the map should contain categories (False)",
+      "schema": {
+        "type": "boolean"
+      },
+      "default": false,
+      "optional": true
+    },
+    {
+      "name": "year_check",
+      "description": "Flag indicating if the year should be checked on croptypes, being split, ...",
+      "schema": {
+        "type": "boolean"
+      },
+      "default": true,
+      "optional": true
+    },
+    {
+      "name": "polygonize",
+      "description": "Flag indicating if the resulting map should be polygonized",
+      "schema": {
+        "type": "boolean"
+      },
+      "default": false,
+      "optional": true
+    }
+  ]
+}
