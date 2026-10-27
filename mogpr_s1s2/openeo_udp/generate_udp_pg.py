@@ -45,7 +45,11 @@ def get_mogpr_s1_s2(
     return apply_neighborhood(
         merged_cube,
         lambda data: data.run_udf(
-            udf=load_mogpr_udf(),
+             udf=(
+                Path(__file__).parent.parent.parent / "utils" / "insert_dependency_archive.py"
+            ).read_text()
+            + "\n"
+            + load_mogpr_udf(),
             runtime="Python",
             context=dict(),
         ),
@@ -96,7 +100,7 @@ def generate() -> dict:
         parameters=[polygon, date, s1_collection, s2_collection],
         default_job_options={
             "udf-dependency-archives": [
-                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip"
+                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
             ]
         },
     )
