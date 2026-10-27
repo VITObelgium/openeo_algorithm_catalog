@@ -53,7 +53,7 @@ def get_mogpr_s1_s2(
             + "\n"
             + load_mogpr_udf(),
             runtime="Python",
-            context=dict(),
+            context={"prediction_period": None},
         ),
         size=[
             {"dimension": "x", "value": 32, "unit": "px"},
@@ -102,7 +102,7 @@ def generate() -> dict:
         parameters=[polygon, date, s1_collection, s2_collection],
         default_job_options={
             "udf-dependency-archives": [
-               "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
+                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
             ]
         },
     )

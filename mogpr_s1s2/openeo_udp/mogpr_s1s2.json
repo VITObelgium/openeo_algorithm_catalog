@@ -681,7 +681,9 @@
             "runudf1": {
               "process_id": "run_udf",
               "arguments": {
-                "context": {},
+                "context": {
+                  "prediction_period": null
+                },
                 "data": {
                   "from_parameter": "data"
                 },
