@@ -51,7 +51,6 @@ def get_mogpr_s1_s2(
             + "\n"
             + load_mogpr_udf(),
             runtime="Python",
-            version="3.8",
             context=dict(),
         ),
         size=[
