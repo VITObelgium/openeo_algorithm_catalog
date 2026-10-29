@@ -38,12 +38,13 @@ def get_peakvalley(
         input_cube,
         process=lambda x: x.run_udf(
             udf=(
-                Path(__file__).parent.parent.parent / "utils" / "set_dependency_path.py"
+                Path(__file__).parent.parent.parent
+                / "utils"
+                / "insert_dependency_archive.py"
             ).read_text()
             + "\n"
             + load_peakvalley_udf(),
             runtime="Python",
-            version="3.8",
             context=context,
         ),
         dimension="t",
@@ -120,6 +121,11 @@ def generate() -> dict:
             rec_param,
             slope_param,
         ],
+        default_job_options={
+            "udf-dependency-archives": [
+                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
+            ]
+        },
     )
 
 

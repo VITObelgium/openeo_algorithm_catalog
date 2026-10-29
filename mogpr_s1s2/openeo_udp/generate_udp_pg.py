@@ -46,13 +46,14 @@ def get_mogpr_s1_s2(
         merged_cube,
         lambda data: data.run_udf(
             udf=(
-                Path(__file__).parent.parent.parent / "utils" / "set_dependency_path.py"
+                Path(__file__).parent.parent.parent
+                / "utils"
+                / "insert_dependency_archive.py"
             ).read_text()
             + "\n"
             + load_mogpr_udf(),
             runtime="Python",
-            version="3.8",
-            context=dict(),
+            context={"prediction_period": None},
         ),
         size=[
             {"dimension": "x", "value": 32, "unit": "px"},
@@ -99,6 +100,11 @@ def generate() -> dict:
         summary="Integrate S1 and S2 timeseries using multi-output gaussian process regression",
         description=(Path(__file__).parent / "readme.md").read_text(),
         parameters=[polygon, date, s1_collection, s2_collection],
+        default_job_options={
+            "udf-dependency-archives": [
+                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
+            ]
+        },
     )
 
 

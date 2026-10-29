@@ -54,12 +54,13 @@ def generate() -> dict:
         data=base_ndvi,
         process=lambda x: x.run_udf(
             udf=(
-                Path(__file__).parent.parent.parent / "utils" / "set_dependency_path.py"
+                Path(__file__).parent.parent.parent
+                / "utils"
+                / "insert_dependency_archive.py"
             ).read_text()
             + "\n"
             + load_phenology_udf(),
             runtime="Python",
-            version="3.8",
         ),
         dimension="t",
         target_dimension="phenology",
@@ -77,6 +78,11 @@ def generate() -> dict:
             spatial_extent,
             temporal_extent,
         ],
+        default_job_options={
+            "udf-dependency-archives": [
+                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
+            ]
+        },
     )
 
 

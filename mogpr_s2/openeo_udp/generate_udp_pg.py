@@ -58,13 +58,14 @@ def generate() -> dict:
         base_ndvi,
         lambda data: data.run_udf(
             udf=(
-                Path(__file__).parent.parent.parent / "utils" / "set_dependency_path.py"
+                Path(__file__).parent.parent.parent
+                / "utils"
+                / "insert_dependency_archive.py"
             ).read_text()
             + "\n"
             + load_mogpr_udf(),
             runtime="Python",
-            version="3.8",
-            context=dict(),
+            context={"prediction_period": None},
         ),
         size=[
             {"dimension": "x", "value": 32, "unit": "px"},
@@ -84,6 +85,11 @@ def generate() -> dict:
             spatial_extent,
             temporal_extent,
         ],
+        default_job_options={
+            "udf-dependency-archives": [
+                "https://s3.waw3-1.cloudferro.com/project_dependencies/fusets_dependencies_python311.zip#fusets_deps"
+            ]
+        },
     )
 
 
